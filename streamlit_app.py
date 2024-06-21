@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 
+# Ensure the upload directory exists
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+
 # Sidebar for database connection details
 st.sidebar.title("Database Connection")
 db_host = st.sidebar.text_input("Host")
@@ -26,15 +30,28 @@ if db_host and db_port and db_user and db_password and db_name:
 else:
     st.sidebar.warning("Please enter all the database connection details.")
 
-# Upload trace or log files
+# Upload trace, log files, full system dump, and runtime dump
 st.sidebar.title("Upload Files")
-uploaded_files = st.sidebar.file_uploader("Upload Trace/Log Files", accept_multiple_files=True)
+uploaded_trace_log_files = st.sidebar.file_uploader("Upload Trace/Log Files", accept_multiple_files=True)
+uploaded_system_dump = st.sidebar.file_uploader("Upload Full System Dump")
+uploaded_runtime_dump = st.sidebar.file_uploader("Upload Runtime Dump")
 
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        with open(os.path.join("uploads", uploaded_file.name), "wb") as f:
-            f.write(uploaded_file.getbuffer())
-    st.sidebar.success("Files uploaded successfully!")
+def save_uploaded_file(uploaded_file):
+    with open(os.path.join("uploads", uploaded_file.name), "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+if uploaded_trace_log_files:
+    for uploaded_file in uploaded_trace_log_files:
+        save_uploaded_file(uploaded_file)
+    st.sidebar.success("Trace/Log files uploaded successfully!")
+
+if uploaded_system_dump:
+    save_uploaded_file(uploaded_system_dump)
+    st.sidebar.success("Full System Dump uploaded successfully!")
+
+if uploaded_runtime_dump:
+    save_uploaded_file(uploaded_runtime_dump)
+    st.sidebar.success("Runtime Dump uploaded successfully!")
 
 # Main interface
 st.title("DB Copilot")
@@ -59,11 +76,22 @@ if st.button("Execute"):
         st.error("No database connection available. Please provide valid connection details.")
 
 # Analyze uploaded trace or log files
-if uploaded_files:
+if uploaded_trace_log_files or uploaded_system_dump or uploaded_runtime_dump:
     st.write("### Analyze Uploaded Files")
-    for uploaded_file in uploaded_files:
-        st.write(f"**{uploaded_file.name}**")
-        file_contents = uploaded_file.read().decode("utf-8")
+    if uploaded_trace_log_files:
+        for uploaded_file in uploaded_trace_log_files:
+            st.write(f"**{uploaded_file.name}**")
+            file_contents = uploaded_file.read().decode("utf-8")
+            st.text(file_contents)
+
+    if uploaded_system_dump:
+        st.write(f"**{uploaded_system_dump.name}**")
+        file_contents = uploaded_system_dump.read().decode("utf-8")
+        st.text(file_contents)
+
+    if uploaded_runtime_dump:
+        st.write(f"**{uploaded_runtime_dump.name}**")
+        file_contents = uploaded_runtime_dump.read().decode("utf-8")
         st.text(file_contents)
 
 # Placeholder for closing the database connection (if applicable)
