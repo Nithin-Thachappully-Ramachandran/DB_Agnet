@@ -1,8 +1,11 @@
+import os
 import streamlit as st
 import altair as alt
 import pandas as pd
 from hdbcli import dbapi
-import os
+
+# Install necessary packages
+os.system('pip install hdbcli')
 
 # Sidebar for database connection details
 st.sidebar.title("Database Connection")
