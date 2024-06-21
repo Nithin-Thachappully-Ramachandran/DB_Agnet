@@ -10,19 +10,20 @@ if not os.path.exists("uploads"):
 st.sidebar.title("Database Connection")
 db_host = st.sidebar.text_input("Host")
 db_port = st.sidebar.text_input("Port")
+db_sid = st.sidebar.text_input("SID")  # Added DB SID input
 db_user = st.sidebar.text_input("Username")
 db_password = st.sidebar.text_input("Password", type="password")
 db_name = st.sidebar.text_input("Database Name")
 
 # Function placeholder for database connection (no implementation shown)
-def create_db_connection(host, port, user, password, db_name):
+def create_db_connection(host, port, sid, user, password, db_name):
     # Placeholder for actual connection logic
     return None
 
 # Input validation for connection details
 conn = None
-if db_host and db_port and db_user and db_password and db_name:
-    conn = create_db_connection(db_host, db_port, db_user, db_password, db_name)
+if db_host and db_port and db_sid and db_user and db_password and db_name:
+    conn = create_db_connection(db_host, db_port, db_sid, db_user, db_password, db_name)
     if conn:
         st.sidebar.success("Connected to the database!")
     else:
@@ -57,7 +58,10 @@ if uploaded_runtime_dump:
 st.title("DB Copilot")
 
 # Chat-like interface for querying the database
-st.write("### Chat with your Database")
+st.write("### I am your DB agent")
+st.write("Let's discuss the incident. Please share your ticket number.")
+ticket_number = st.text_input("Ticket Number")
+
 query = st.text_area("Enter your SQL query here:")
 
 if st.button("Execute"):
