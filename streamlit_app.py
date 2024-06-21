@@ -62,7 +62,8 @@ st.write("### I am your DB agent")
 st.write("Let's discuss the incident. Please share your ticket number.")
 ticket_number = st.text_input("Ticket Number")
 
-query = st.text_area("Enter your SQL query here:")
+st.write("### Ask About Database Health")
+query = st.text_area("What would you like to know about the database health?")
 
 if st.button("Execute"):
     if conn:
