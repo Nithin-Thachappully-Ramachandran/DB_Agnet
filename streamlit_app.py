@@ -1,116 +1,81 @@
-import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
-import sqlite3
+import altair as alt
+import pandas as pd
+from hdbcli import dbapi
+import os
 
-# Database setup
-conn = sqlite3.connect('database.db')
-c = conn.cursor()
+# Sidebar for database connection details
+st.sidebar.title("Database Connection")
+db_host = st.sidebar.text_input("Host")
+db_port = st.sidebar.text_input("Port")
+db_user = st.sidebar.text_input("Username")
+db_password = st.sidebar.text_input("Password", type="password")
+db_name = st.sidebar.text_input("Database Name")
 
-# Create table
-c.execute('''
-CREATE TABLE IF NOT EXISTS data (
-    id INTEGER PRIMARY KEY,
-    x REAL,
-    y REAL,
-    idx REAL,
-    rand REAL
-)
-''')
-conn.commit()
+# Function to create a database connection
+def create_db_connection(host, port, user, password, db_name):
+    try:
+        conn = dbapi.connect(
+            address=host,
+            port=int(port),
+            user=user,
+            password=password,
+            database=db_name
+        )
+        return conn
+    except Exception as e:
+        st.sidebar.error(f"Failed to connect to the database: {e}")
+        return None
 
-# Sidebar navigation
-st.sidebar.title("DB Agent")
-section = st.sidebar.radio("Go to", ["Home", "Add Data", "View Data", "Update Data", "Delete Data", "Visualize"])
+# Input validation for connection details
+if db_host and db_port and db_user and db_password and db_name:
+    conn = create_db_connection(db_host, db_port, db_user, db_password, db_name)
+    if conn:
+        st.sidebar.success("Connected to the database!")
+else:
+    conn = None
+    st.sidebar.warning("Please enter all the database connection details.")
 
-# Home section
-if section == "Home":
-    st.title("Welcome to the Database Agent")
-    st.write("Use the sidebar to navigate through different options.")
+# Upload trace or log files
+st.sidebar.title("Upload Files")
+uploaded_files = st.sidebar.file_uploader("Upload Trace/Log Files", accept_multiple_files=True)
 
-# Add Data section
-elif section == "Add Data":
-    st.title("Add Data")
-    with st.form("add_form"):
-        x = st.number_input("X value", value=0.0)
-        y = st.number_input("Y value", value=0.0)
-        idx = st.number_input("Index value", value=0.0)
-        rand = st.number_input("Random value", value=0.0)
-        submitted = st.form_submit_button("Add")
-        if submitted:
-            c.execute("INSERT INTO data (x, y, idx, rand) VALUES (?, ?, ?, ?)", (x, y, idx, rand))
-            conn.commit()
-            st.success("Data added successfully!")
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        with open(os.path.join("uploads", uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.getbuffer())
+    st.sidebar.success("Files uploaded successfully!")
 
-# View Data section
-elif section == "View Data":
-    st.title("View Data")
-    df = pd.read_sql_query("SELECT * FROM data", conn)
-    st.write(df)
+# Main interface
+st.title("DB Copilot")
 
-# Update Data section
-elif section == "Update Data":
-    st.title("Update Data")
-    df = pd.read_sql_query("SELECT * FROM data", conn)
-    ids = df['id'].tolist()
-    selected_id = st.selectbox("Select ID to update", ids)
-    if selected_id:
-        row = df[df['id'] == selected_id]
-        x = st.number_input("X value", value=row['x'].values[0])
-        y = st.number_input("Y value", value=row['y'].values[0])
-        idx = st.number_input("Index value", value=row['idx'].values[0])
-        rand = st.number_input("Random value", value=row['rand'].values[0])
-        if st.button("Update"):
-            c.execute("UPDATE data SET x=?, y=?, idx=?, rand=? WHERE id=?", (x, y, idx, rand, selected_id))
-            conn.commit()
-            st.success("Data updated successfully!")
+# Chat-like interface for querying the database
+st.write("### Chat with your Database")
+query = st.text_area("Enter your SQL query here:")
 
-# Delete Data section
-elif section == "Delete Data":
-    st.title("Delete Data")
-    df = pd.read_sql_query("SELECT * FROM data", conn)
-    ids = df['id'].tolist()
-    selected_id = st.selectbox("Select ID to delete", ids)
-    if selected_id:
-        if st.button("Delete"):
-            c.execute("DELETE FROM data WHERE id=?", (selected_id,))
-            conn.commit()
-            st.success("Data deleted successfully!")
-
-# Visualize Data section
-elif section == "Visualize":
-    st.title("Visualize Data")
-    df = pd.read_sql_query("SELECT * FROM data", conn)
-    
-    if not df.empty:
-        num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-        num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
-
-        indices = np.linspace(0, 1, num_points)
-        theta = 2 * np.pi * num_turns * indices
-        radius = indices
-
-        x = radius * np.cos(theta)
-        y = radius * np.sin(theta)
-
-        df = pd.DataFrame({
-            "x": x,
-            "y": y,
-            "idx": indices,
-            "rand": np.random.randn(num_points),
-        })
-
-        st.altair_chart(alt.Chart(df, height=700, width=700)
-            .mark_point(filled=True)
-            .encode(
-                x=alt.X("x", axis=None),
-                y=alt.Y("y", axis=None),
-                color=alt.Color("idx", legend=None, scale=alt.Scale()),
-                size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-            ))
+if st.button("Execute"):
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            result = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            df = pd.DataFrame(result, columns=columns)
+            st.write(df)
+            cursor.close()
+        except Exception as e:
+            st.error(f"Error executing query: {e}")
     else:
-        st.write("No data available to visualize.")
+        st.error("No database connection available. Please provide valid connection details.")
 
-# Close the database connection
-conn.close()
+# Analyze uploaded trace or log files
+if uploaded_files:
+    st.write("### Analyze Uploaded Files")
+    for uploaded_file in uploaded_files:
+        st.write(f"**{uploaded_file.name}**")
+        file_contents = uploaded_file.read().decode("utf-8")
+        st.text(file_contents)
+
+# Close the database connection when done
+if conn:
+    conn.close()
